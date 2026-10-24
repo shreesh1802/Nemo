@@ -64,6 +64,15 @@ class MockLLM:
         if last["role"] == "tool":
             return self._reply(f"Here is what I found: {last['content'][:300]}")
         text = (last.get("content") or "").lower()
+        if "scan" in text:
+            words = [w for w in (last.get("content") or "").split() if "/" in w or "\\" in w]
+            call = SimpleNamespace(
+                id="mock2",
+                function=SimpleNamespace(
+                    name="scan_repo", arguments=json.dumps({"source": words[0] if words else "."})
+                ),
+            )
+            return self._reply(calls=[call])
         if "clipboard" in text or "copied" in text:
             call = SimpleNamespace(
                 id="mock1",
