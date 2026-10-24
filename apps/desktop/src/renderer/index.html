@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; connect-src ws://127.0.0.1:8000; style-src 'self' 'unsafe-inline'"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="robot" class="hit idle">
+      <div class="antenna"></div>
+      <div class="head">
+        <div class="eye left"></div>
+        <div class="eye right"></div>
+      </div>
+      <div class="body">
+        <div class="arm left"></div>
+        <div class="arm right"></div>
+      </div>
+      <div class="legs"><i></i><i></i></div>
+    </div>
+
+    <div id="bubble" class="hit hidden">
+      <div id="reply"></div>
+      <div id="confirm" class="hidden">
+        <span id="confirm-text"></span>
+        <button id="allow">Allow</button>
+        <button id="deny">Deny</button>
+      </div>
+      <input id="input" placeholder="Ask Nemo..." autocomplete="off" />
+    </div>
+
+    <script src="robot.js"></script>
+    <script src="agent.js"></script>
+  </body>
+</html>

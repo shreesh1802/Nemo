@@ -3,20 +3,22 @@ import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from .config import load_settings
-from .llm import LLM
+from .llm import LLM, MockLLM
 from .memory import Memory
 from .session import Session
 from .tools.base import ToolRegistry
+from .tools.builtin import register_builtin
 
 app = FastAPI(title="Nemo agent")
 settings = load_settings()
-llm = LLM(settings)
+# Without a key the agent runs in offline mock mode so the app is still usable.
+llm = LLM(settings) if settings.api_key and settings.model_for("standard") else MockLLM()
 memory = Memory(settings.db_path)
 
 
 def build_registry() -> ToolRegistry:
     registry = ToolRegistry()
-    # Built-in tools register here as they are added (see tools/).
+    register_builtin(registry)
     return registry
 
 

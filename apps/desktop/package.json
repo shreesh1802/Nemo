@@ -1,0 +1,13 @@
+{
+  "name": "nemo-desktop",
+  "version": "0.1.0",
+  "description": "Nemo: the on-screen AI companion",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.0"
+  }
+}
