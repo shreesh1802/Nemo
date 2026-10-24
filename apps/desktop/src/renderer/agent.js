@@ -1,9 +1,11 @@
 // Connection to the agent service: sends requests, runs client tools, shows replies.
 const WS_URL = "ws://127.0.0.1:8000/ws";
 const reply = document.getElementById("reply");
+const thinking = document.getElementById("thinking");
 const confirmBox = document.getElementById("confirm");
 const confirmText = document.getElementById("confirm-text");
 let socket = null;
+let thinkingSince = 0;
 
 function connect() {
   socket = new WebSocket(WS_URL);
@@ -16,18 +18,33 @@ function send(event) {
   if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(event));
 }
 
-function speak(text) {
-  if (!text || !window.speechSynthesis) return;
-  speechSynthesis.cancel();
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.onstart = () => setState("speaking");
-  utter.onend = () => setState("listening");
-  speechSynthesis.speak(utter);
+function showThinking() {
+  reply.classList.add("hidden");
+  thinking.classList.remove("hidden");
+  thinkingSince = Date.now();
+  place();
+}
+
+// Reveal the reply word by word so it feels composed rather than dumped.
+function showReply(text) {
+  thinking.classList.add("hidden");
+  reply.replaceChildren();
+  reply.classList.remove("hidden");
+  text.split(/(\s+)/).forEach((part, i) => {
+    if (!part.trim()) return reply.append(part);
+    const span = document.createElement("span");
+    span.className = "w";
+    span.textContent = part;
+    span.style.animationDelay = `${i * 18}ms`;
+    reply.append(span);
+  });
+  place();
 }
 
 async function handle(event) {
   switch (event.type) {
     case "state":
+      if (event.state === "thinking") showThinking();
       if (event.state !== "idle") setState(event.state);
       break;
     case "tool_request": {
@@ -48,17 +65,16 @@ async function handle(event) {
       document.getElementById("deny").onclick = () => answer(event.id, false);
       break;
     case "final":
-      reply.textContent = event.text;
-      setState("listening");
-      place();
-      speak(event.text);
-      scheduleSleep(15000);
+    case "error": {
+      // Make sure the "thinking" beat is visible even for instant replies.
+      const wait = Math.max(0, 900 - (Date.now() - thinkingSince));
+      setTimeout(() => {
+        showReply(event.type === "final" ? event.text : event.message);
+        setState("idle"); // the border glow fades out as the answer appears
+        scheduleSleep(20000);
+      }, wait);
       break;
-    case "error":
-      reply.textContent = event.message;
-      setState("listening");
-      place();
-      break;
+    }
   }
 }
 
@@ -70,9 +86,10 @@ function answer(id, approved) {
 
 input.addEventListener("keydown", (e) => {
   if (e.key !== "Enter" || !input.value.trim()) return;
-  reply.textContent = "";
   send({ type: "user_message", text: input.value.trim() });
   input.value = "";
+  showThinking();
+  setState("thinking");
 });
 
 connect();

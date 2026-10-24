@@ -62,7 +62,7 @@ class MockLLM:
             return self._reply('{"tier": "fast"}')
         last = messages[-1]
         if last["role"] == "tool":
-            return self._reply(f"Here is what I found: {last['content'][:300]}")
+            return self._reply(self._explain(last["content"]))
         text = (last.get("content") or "").lower()
         if "scan" in text:
             words = [w for w in (last.get("content") or "").split() if "/" in w or "\\" in w]
@@ -79,4 +79,35 @@ class MockLLM:
                 function=SimpleNamespace(name="clipboard_read", arguments=json.dumps({})),
             )
             return self._reply(calls=[call])
-        return self._reply(f"(offline mode) You said: {last.get('content')}")
+        return self._reply(
+            f"I heard \"{last.get('content')}\". I can't reason about that just yet, "
+            "but I can read your clipboard or scan a repo for security problems."
+        )
+
+    @staticmethod
+    def _explain(raw: str) -> str:
+        """Turn a tool result into a short, friendly sentence."""
+        try:
+            data = json.loads(raw)
+        except (ValueError, TypeError):
+            data = raw
+        if isinstance(data, dict) and "error" in data:
+            return f"That didn't work: {data['error']}."
+        if isinstance(data, dict) and "counts" in data:
+            c, total = data["counts"], data["total"]
+            if not total:
+                return f"All clear. I checked {data['files_scanned']} files and found nothing worrying."
+            parts = [f"{c[s]} {s}" for s in ("critical", "high", "medium", "low") if c[s]]
+            top = data["findings"][0]
+            where = f"{top['file']}" + (f":{top['line']}" if top["line"] else "")
+            return (
+                f"I looked through {data['files_scanned']} files and found {total} "
+                f"issue{'s' if total != 1 else ''} ({', '.join(parts)}). "
+                f"The most serious is in {where}: {top['message']} {top['fix']}"
+            )
+        text = data if isinstance(data, str) else json.dumps(data)
+        text = text.strip()
+        if not text:
+            return "Your clipboard looks empty."
+        shown = text if len(text) <= 240 else text[:240] + "..."
+        return f"Your clipboard says: \"{shown}\""
