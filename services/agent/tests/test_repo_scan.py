@@ -67,3 +67,48 @@ async def test_rejects_non_https_and_missing_dir(tmp_path):
             pass
     result = await scan_repo({"source": str(tmp_path / "nope")})
     assert "error" in result
+
+
+def _git(tmp_path, *args):
+    import subprocess
+
+    subprocess.run(["git", "-C", str(tmp_path), *args], check=True, capture_output=True)
+
+
+def test_gitignored_files_are_skipped(tmp_path):
+    _git(tmp_path, "init", "-q")
+    (tmp_path / ".gitignore").write_text(".env\n")
+    (tmp_path / ".env").write_text(f"KEY={FAKE_AWS}\n")  # ignored: must not be reported
+    (tmp_path / "app.py").write_text(f'KEY = "{FAKE_AWS}"\n')  # not ignored: must be reported
+    findings, _ = scan_files(tmp_path)
+    assert {f["file"] for f in findings} == {"app.py"}
+
+
+def test_untracked_but_not_ignored_files_are_still_scanned(tmp_path):
+    _git(tmp_path, "init", "-q")
+    (tmp_path / "new.py").write_text("eval(user_input)\n")
+    findings, _ = scan_files(tmp_path)
+    assert any(f["rule"] == "py-eval" for f in findings)
+
+
+def test_inline_ignore_and_ignore_file(tmp_path):
+    (tmp_path / "a.py").write_text("eval(x)  # nemo-scan: ignore\neval(y)\n")
+    (tmp_path / "rules.py").write_text("eval(z)\n")
+    (tmp_path / ".nemoscanignore").write_text("# comment\nrules.py\n")
+    findings, _ = scan_files(tmp_path)
+    assert [(f["file"], f["line"]) for f in findings] == [("a.py", 2)]
+
+
+def test_code_findings_in_tests_are_low_but_secrets_are_not(tmp_path):
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_x.py").write_text(f'eval(x)\nKEY = "{FAKE_AWS}"\n')
+    findings, _ = scan_files(tmp_path)
+    by_rule = {f["rule"]: f for f in findings}
+    assert by_rule["py-eval"]["severity"] == "low" and "test code" in by_rule["py-eval"]["message"]
+    assert by_rule["aws-access-key"]["severity"] == "critical"
+
+
+def test_attribute_eval_and_exec_are_not_flagged(tmp_path):
+    (tmp_path / "m.py").write_text("model.eval()\npattern.exec(s)\nast.literal_eval(s)\nresult = eval(s)\n")
+    findings, _ = scan_files(tmp_path)
+    assert [f["line"] for f in findings] == [4]

@@ -1,0 +1,3 @@
+# Files Nemo's own repo scan should skip (one glob per line, like .gitignore).
+# The scanner's rule definitions contain the very patterns it searches for.
+services/agent/nemo_agent/tools/repo_scan/rules.py

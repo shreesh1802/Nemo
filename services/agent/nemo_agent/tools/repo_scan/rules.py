@@ -20,9 +20,10 @@ PY = {".py"}
 JS = {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"}
 
 CODE_RULES = [
-    _r("py-eval", "high", r"\beval\s*\(", "eval() runs arbitrary code.",
+    # (?<![\w.]) skips attribute calls such as model.eval() or re.exec(), which are not the builtin.
+    _r("py-eval", "high", r"(?<![\w.])eval\s*\(", "eval() runs arbitrary code.",
        "Use ast.literal_eval or a real parser.", PY),
-    _r("py-exec", "high", r"\bexec\s*\(", "exec() runs arbitrary code.",
+    _r("py-exec", "high", r"(?<![\w.])exec\s*\(", "exec() runs arbitrary code.",
        "Avoid dynamic code execution.", PY),
     _r("py-pickle", "high", r"\bpickle\.loads?\s*\(", "Unpickling untrusted data can execute code.",
        "Use JSON, or only unpickle data you produced and signed.", PY),
@@ -40,7 +41,7 @@ CODE_RULES = [
        r"\.execute\s*\(\s*(f[\"']|[\"'][^\"']*[\"']\s*(%|\+)|[^)]*\.format\()",
        "SQL built by string formatting; likely SQL injection.",
        "Use parameterized queries.", PY),
-    _r("js-eval", "high", r"\beval\s*\(|new\s+Function\s*\(", "Dynamic code execution.",
+    _r("js-eval", "high", r"(?<![\w.])eval\s*\(|new\s+Function\s*\(", "Dynamic code execution.",
        "Remove eval/new Function; parse data instead.", JS),
     _r("js-innerhtml", "medium", r"\.innerHTML\s*=|dangerouslySetInnerHTML|document\.write\s*\(",
        "Writing raw HTML can cause XSS.", "Use textContent or sanitize with DOMPurify.", JS),
