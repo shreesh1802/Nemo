@@ -37,7 +37,7 @@ memory = Memory(settings.db_path)
 
 def build_registry() -> ToolRegistry:
     registry = ToolRegistry()
-    register_builtin(registry)
+    register_builtin(registry, settings.tavily_api_key)
     return registry
 
 

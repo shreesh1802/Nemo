@@ -1,10 +1,49 @@
 from .base import Risk, Site, Tool, ToolRegistry
 from .repo_scan import scan_repo
+from .web import make_read_webpage, make_web_search
 
 _NO_ARGS = {"type": "object", "properties": {}}
 
 
-def register_builtin(registry: ToolRegistry) -> None:
+def register_builtin(registry: ToolRegistry, tavily_key: str = "") -> None:
+    registry.register(
+        Tool(
+            name="web_search",
+            description=(
+                "Search the web for current or unfamiliar information (news, versions, security "
+                "advisories, documentation, facts you are unsure of). Returns a short answer plus "
+                "sources. Cite the source URLs you rely on."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "topic": {"type": "string", "enum": ["general", "news"]},
+                    "time_range": {"type": "string", "enum": ["day", "week", "month", "year"]},
+                    "max_results": {"type": "integer", "description": "1 to 8, default 5."},
+                    "depth": {"type": "string", "enum": ["basic", "advanced"], "description": "advanced is slower and deeper."},
+                },
+                "required": ["query"],
+            },
+            risk=Risk.READ,
+            site=Site.SERVER,
+            handler=make_web_search(tavily_key),
+        )
+    )
+    registry.register(
+        Tool(
+            name="read_webpage",
+            description="Read the text of one web page (a URL from search results or one the user gave).",
+            parameters={
+                "type": "object",
+                "properties": {"url": {"type": "string"}},
+                "required": ["url"],
+            },
+            risk=Risk.READ,
+            site=Site.SERVER,
+            handler=make_read_webpage(tavily_key),
+        )
+    )
     registry.register(
         Tool(
             name="scan_repo",
