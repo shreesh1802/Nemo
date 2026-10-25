@@ -22,6 +22,9 @@ class Tool:
     risk: Risk
     site: Site
     handler: Callable[[dict[str, Any]], Awaitable[Any]] | None = None  # server tools only
+    # Name of an argument holding a path on the user's machine. A server tool that reads
+    # local files must declare it, so the desktop app approves the folder first.
+    local_path_arg: str | None = None
     tags: list[str] = field(default_factory=list)
 
     def as_openai(self) -> dict[str, Any]:

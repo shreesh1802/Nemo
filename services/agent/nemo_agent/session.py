@@ -14,6 +14,9 @@ Send = Callable[[dict[str, Any]], Awaitable[None]]
 MAX_STEPS = 25
 SYSTEM_PROMPT = (
     "You are Nemo, a small friendly assistant living on the user's screen. Keep replies short. "
+    "Do exactly what the user asked and nothing more. Scanning, reading, explaining or answering is "
+    "never a request to change anything: report what you found and offer to fix it, then wait. "
+    "Never install software or change files or settings that the user did not ask you to. "
     "You can act on the user's computer with your tools. When asked to fix, change, create, "
     "install or run something, do it yourself instead of listing steps for the user to follow. "
     "Work like this: look first (list_dir, search_files, read_file), then make the smallest change "
@@ -122,6 +125,16 @@ class Session:
                 self._policy.record_approval(tool)
 
         try:
+            if tool.local_path_arg:
+                target = str(args.get(tool.local_path_arg, "")).strip()
+                if target and not target.startswith(("http://", "https://")):
+                    # The service is about to read the user's disk: the desktop app must
+                    # approve this folder first, exactly as it does for its own file tools.
+                    check = await self._ask(
+                        {"type": "tool_request", "name": "check_access", "args": {"path": target}}
+                    )
+                    if not check.get("ok"):
+                        return json.dumps({"error": check.get("result") or "access to that folder was not allowed"})
             if tool.site is Site.CLIENT:
                 answer = await self._ask({"type": "tool_request", "name": name, "args": args})
                 if not answer.get("ok"):

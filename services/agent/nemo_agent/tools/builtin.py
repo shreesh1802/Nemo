@@ -21,6 +21,7 @@ def register_builtin(registry: ToolRegistry) -> None:
             risk=Risk.READ,
             site=Site.SERVER,
             handler=scan_repo,
+            local_path_arg="source",
         )
     )
     # Client tools: the desktop app executes these on the user's machine, and enforces

@@ -224,7 +224,14 @@ function runCommand({ command, cwd, timeout_seconds: timeout = 60 }) {
   });
 }
 
+// Used by the agent service before it reads a local path itself (for example the repo
+// scan): the same folder approval and protected-file rules apply as for any other tool.
+function checkAccess({ path: p }) {
+  return access(p);
+}
+
 const HANDLERS = {
+  check_access: checkAccess,
   list_dir: listDir,
   read_file: readFile,
   search_files: searchFiles,

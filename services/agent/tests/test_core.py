@@ -172,3 +172,41 @@ async def test_unavailable_model_falls_back_to_the_next_tier():
     llm._client = SimpleNamespace(chat=SimpleNamespace(completions=Completions()))
     assert await llm.complete("deep", [{"role": "user", "content": "hi"}]) == "ok"
     assert calls == ["huge", "mid"]
+
+
+async def _run_local_reader(tmp_path, desktop_says_ok, source):
+    ran = []
+
+    async def handler(_args):
+        ran.append(1)
+        return {"ok": True}
+
+    tool = make_tool("scan", handler=handler)
+    tool.local_path_arg = "source"
+    reg = ToolRegistry()
+    reg.register(tool)
+    asked = []
+    session = None
+
+    async def send(event):
+        if event["type"] == "tool_request":
+            asked.append((event["name"], event["args"]))
+            session.deliver({"id": event["id"], "ok": desktop_says_ok, "result": "not allowed"})
+
+    llm = fake_llm(assistant(calls=[call("scan", json.dumps({"source": source}))]), assistant("ok"))
+    session = Session(llm, reg, Memory(str(tmp_path / "m.db")), send)
+    await session.handle_user_message("scan it")
+    return ran, asked
+
+
+async def test_server_tool_reading_a_local_path_needs_the_desktop_to_approve_it_first(tmp_path):
+    ran, asked = await _run_local_reader(tmp_path, True, "C:/proj")
+    assert asked == [("check_access", {"path": "C:/proj"})] and ran == [1]
+
+    ran, asked = await _run_local_reader(tmp_path, False, "C:/proj")
+    assert asked and ran == []  # denied folder: the tool never runs
+
+
+async def test_remote_urls_need_no_local_folder_approval(tmp_path):
+    ran, asked = await _run_local_reader(tmp_path, False, "https://github.com/x/y.git")
+    assert asked == [] and ran == [1]

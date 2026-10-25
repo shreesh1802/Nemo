@@ -153,3 +153,13 @@ test("drives, the home folder and system folders cannot be granted", () => {
   assert.throws(() => grantFolder(path.dirname(os.homedir())));
   if (process.env.SystemRoot) assert.throws(() => grantFolder(process.env.SystemRoot));
 });
+
+test("check_access approves granted paths and asks for others, for tools that read the disk themselves", async () => {
+  const dir = sandbox();
+  assert.ok((await runTool("check_access", { path: dir })).ok);
+  const other = fs.mkdtempSync(path.join(os.tmpdir(), "nemo-else-"));
+  const r = await runTool("check_access", { path: other });
+  assert.strictEqual(r.ok, false);
+  assert.ok(r.needsGrant);
+  assert.strictEqual((await runTool("check_access", { path: path.join(dir, ".env") })).ok, false);
+});
