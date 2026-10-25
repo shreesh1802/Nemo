@@ -1,4 +1,5 @@
 import json
+import re
 
 from .llm import LLM
 
@@ -17,7 +18,9 @@ async def pick_tier(llm: LLM, text: str) -> str:
             "fast",
             [{"role": "system", "content": _PROMPT}, {"role": "user", "content": text}],
         )
-        tier = json.loads(resp.choices[0].message.content or "{}").get("tier")
+        raw = resp.choices[0].message.content or ""
+        match = re.search(r"\{.*?\}", raw, re.S)  # tolerate code fences around the JSON
+        tier = json.loads(match.group(0) if match else "{}").get("tier")
         if tier in ("fast", "standard", "deep"):
             return tier
     except Exception:

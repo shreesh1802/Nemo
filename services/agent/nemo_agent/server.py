@@ -1,4 +1,6 @@
 import asyncio
+import logging
+import os
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
@@ -9,10 +11,27 @@ from .session import Session
 from .tools.base import ToolRegistry
 from .tools.builtin import register_builtin
 
+log = logging.getLogger("uvicorn.error")
 app = FastAPI(title="Nemo agent")
 settings = load_settings()
-# Without a key the agent runs in offline mock mode so the app is still usable.
-llm = LLM(settings) if settings.api_key and settings.model_for("standard") else MockLLM()
+
+
+def build_llm():
+    """Pick the model provider. Set NEMO_PROVIDER=nebius|claude|mock to force one;
+    otherwise Nebius is used when configured, then Claude, then the offline mock."""
+    forced = os.getenv("NEMO_PROVIDER", "").strip().lower()
+    nebius_ready = bool(settings.api_key and settings.model_for("standard"))
+    if forced == "claude" or (not forced and not nebius_ready and os.getenv("ANTHROPIC_API_KEY")):
+        from .llm_anthropic import AnthropicLLM
+
+        return "claude", AnthropicLLM()
+    if forced == "nebius" or (not forced and nebius_ready):
+        return "nebius", LLM(settings)
+    return "mock", MockLLM()  # no keys: the app still runs offline
+
+
+provider, llm = build_llm()
+log.info("Nemo model provider: %s", provider)
 memory = Memory(settings.db_path)
 
 
@@ -24,7 +43,7 @@ def build_registry() -> ToolRegistry:
 
 @app.get("/health")
 async def health() -> dict:
-    return {"ok": True}
+    return {"ok": True, "provider": provider}
 
 
 @app.websocket("/ws")

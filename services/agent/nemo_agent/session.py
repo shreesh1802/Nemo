@@ -47,6 +47,16 @@ class Session:
 
     # --- the loop ----------------------------------------------------------
     async def handle_user_message(self, text: str) -> None:
+        try:
+            await self._handle(text)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            # A failed model call must never leave the robot stuck on "thinking".
+            await self._send({"type": "error", "message": f"I couldn't reach my model ({type(exc).__name__}). {str(exc)[:160]}"})
+            await self._send({"type": "state", "state": "idle"})
+
+    async def _handle(self, text: str) -> None:
         await self._send({"type": "state", "state": "thinking"})
         tier = await pick_tier(self._llm, text)
         facts = self._memory.recent()
