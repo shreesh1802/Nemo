@@ -2,7 +2,7 @@ import json
 from types import SimpleNamespace
 from typing import Any
 
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, NotFoundError, PermissionDeniedError
 
 from .config import Settings
 
@@ -20,13 +20,24 @@ class LLM:
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
     ):
-        kwargs: dict[str, Any] = {
-            "model": self._settings.model_for(tier),
-            "messages": messages,
-        }
+        kwargs: dict[str, Any] = {"messages": messages}
         if tools:
             kwargs["tools"] = tools
-        return await self._client.chat.completions.create(**kwargs)
+        # A tier whose model this account can't use falls back to the next tier down,
+        # so one unavailable model never makes the whole agent unusable.
+        chain = {"deep": ["deep", "standard", "fast"], "standard": ["standard", "fast"], "fast": ["fast"]}[tier]
+        tried: set[str] = set()
+        last_error: Exception | None = None
+        for step in chain:
+            model = self._settings.model_for(step)
+            if model in tried:
+                continue
+            tried.add(model)
+            try:
+                return await self._client.chat.completions.create(model=model, **kwargs)
+            except (NotFoundError, PermissionDeniedError) as exc:
+                last_error = exc
+        raise last_error  # type: ignore[misc]
 
 
 class MockLLM:

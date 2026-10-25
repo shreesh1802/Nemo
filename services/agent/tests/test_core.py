@@ -148,3 +148,27 @@ async def test_write_tools_ask_every_time_unless_user_allows_for_the_session(tmp
 async def test_denied_edit_never_reaches_the_desktop(tmp_path):
     asked, executed = await _run_edits(tmp_path, [{"approved": False}, {"approved": False}])
     assert executed == [] and len(asked) == 2
+
+
+async def test_unavailable_model_falls_back_to_the_next_tier():
+    import httpx
+    from openai import NotFoundError
+
+    from nemo_agent.config import Settings
+    from nemo_agent.llm import LLM
+
+    settings = Settings("k", "http://x", "small", "mid", "huge", "", "db")
+    llm = LLM(settings)
+    calls = []
+
+    class Completions:
+        async def create(self, model, **kw):
+            calls.append(model)
+            if model == "huge":
+                req = httpx.Request("POST", "http://x")
+                raise NotFoundError("nope", response=httpx.Response(404, request=req), body=None)
+            return "ok"
+
+    llm._client = SimpleNamespace(chat=SimpleNamespace(completions=Completions()))
+    assert await llm.complete("deep", [{"role": "user", "content": "hi"}]) == "ok"
+    assert calls == ["huge", "mid"]
