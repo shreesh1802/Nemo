@@ -23,7 +23,74 @@ def register_builtin(registry: ToolRegistry) -> None:
             handler=scan_repo,
         )
     )
-    # Client tools: the desktop app executes these on the user's machine.
+    # Client tools: the desktop app executes these on the user's machine, and enforces
+    # which folders they may touch. The agent service never reads or writes files itself.
+    def client(name, description, properties, required, risk):
+        registry.register(
+            Tool(
+                name=name,
+                description=description,
+                parameters={"type": "object", "properties": properties, "required": required},
+                risk=risk,
+                site=Site.CLIENT,
+            )
+        )
+
+    path = {"type": "string", "description": "Absolute path."}
+    client("list_dir", "List the files and folders in a directory.", {"path": path}, ["path"], Risk.READ)
+    client(
+        "read_file",
+        "Read a text file. Returns numbered lines. Always read a file before editing it.",
+        {
+            "path": path,
+            "offset": {"type": "integer", "description": "First line to read (1-based)."},
+            "limit": {"type": "integer", "description": "Maximum lines to return (default 400)."},
+        },
+        ["path"],
+        Risk.READ,
+    )
+    client(
+        "search_files",
+        "Search file contents under a folder with a regular expression (case-insensitive).",
+        {
+            "path": path,
+            "pattern": {"type": "string", "description": "Regular expression."},
+            "glob": {"type": "string", "description": "Optional file name filter, e.g. *.py"},
+        },
+        ["path", "pattern"],
+        Risk.READ,
+    )
+    client(
+        "edit_file",
+        "Change a file by replacing one exact piece of text with new text. old_text must appear "
+        "exactly once, so include enough surrounding lines to make it unique. Prefer this over write_file.",
+        {
+            "path": path,
+            "old_text": {"type": "string", "description": "Exact existing text, copied from read_file."},
+            "new_text": {"type": "string"},
+        },
+        ["path", "old_text", "new_text"],
+        Risk.WRITE,
+    )
+    client(
+        "write_file",
+        "Create a new file, or completely replace an existing one. Use edit_file for small changes.",
+        {"path": path, "content": {"type": "string"}},
+        ["path", "content"],
+        Risk.WRITE,
+    )
+    client(
+        "run_command",
+        "Run a shell command (PowerShell on Windows) in a folder and return its output. Use it to run "
+        "tests, install packages or use git. The user must approve every command.",
+        {
+            "command": {"type": "string"},
+            "cwd": {"type": "string", "description": "Absolute path of the folder to run in."},
+            "timeout_seconds": {"type": "integer", "description": "Default 60, maximum 300."},
+        },
+        ["command", "cwd"],
+        Risk.DESTRUCTIVE,
+    )
     registry.register(
         Tool(
             name="clipboard_read",

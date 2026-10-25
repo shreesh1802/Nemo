@@ -4,7 +4,8 @@
   "description": "Nemo: the on-screen AI companion",
   "main": "src/main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "test": "node --test test/*.test.js"
   },
   "license": "MIT",
   "devDependencies": {

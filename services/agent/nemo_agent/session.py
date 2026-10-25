@@ -11,11 +11,20 @@ from .tools.base import Site, ToolRegistry
 
 Send = Callable[[dict[str, Any]], Awaitable[None]]
 
-MAX_STEPS = 12
+MAX_STEPS = 25
 SYSTEM_PROMPT = (
-    "You are Nemo, a small friendly robot living on the user's screen. "
-    "Be brief; your replies are spoken aloud. Use tools when they help. "
-    "If a tool is denied, accept it and offer an alternative."
+    "You are Nemo, a small friendly assistant living on the user's screen. Keep replies short. "
+    "You can act on the user's computer with your tools. When asked to fix, change, create, "
+    "install or run something, do it yourself instead of listing steps for the user to follow. "
+    "Work like this: look first (list_dir, search_files, read_file), then make the smallest change "
+    "that works (edit_file), then check it (run_command, for example the tests). Always read a file "
+    "before editing it, and read the code that a failing test or error points at before deciding what is "
+    "wrong. Run tests with the real test runner (for Python use `python -m pytest`, for Node `npm test`) "
+    "and read its output; a command that prints nothing may not have tested anything, so never report "
+    "success without evidence. Use absolute paths. The user approves every change and command and sees exactly "
+    "what you intend to do, so do not ask for permission in words. If the user denies something, do not "
+    "retry the same thing; offer an alternative or ask what they prefer. When you finish, say briefly "
+    "what you changed and what you verified."
 )
 
 
@@ -109,7 +118,8 @@ class Session:
             )
             if not answer.get("approved"):
                 return json.dumps({"error": "user denied this action"})
-            self._policy.record_approval(tool)
+            if answer.get("remember"):  # "Allow for this session"; destructive tools ignore it
+                self._policy.record_approval(tool)
 
         try:
             if tool.site is Site.CLIENT:

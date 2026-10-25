@@ -24,7 +24,7 @@ const floorY = () => window.innerHeight - ROBOT_H - 8;
 
 function place() {
   robot.style.transform = `translate(${pos.x}px, ${pos.y}px)`;
-  const bx = clamp(pos.x + ROBOT_W / 2 - 140, 8, window.innerWidth - 288);
+  const bx = clamp(pos.x + ROBOT_W / 2 - 170, 8, window.innerWidth - 348);
   const above = pos.y > bubble.offsetHeight + 24;
   bubble.style.left = `${bx}px`;
   bubble.style.top = above ? `${pos.y - bubble.offsetHeight - 10}px` : `${pos.y + ROBOT_H + 10}px`;

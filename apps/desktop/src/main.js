@@ -1,5 +1,6 @@
 const { app, BrowserWindow, screen, ipcMain, globalShortcut, clipboard } = require("electron");
 const path = require("path");
+const { runTool, grantFolder } = require("./tools");
 
 let win;
 
@@ -31,6 +32,14 @@ ipcMain.on("set-interactive", (_e, interactive) => {
   if (!win) return;
   win.setIgnoreMouseEvents(!interactive, { forward: true });
   if (interactive) win.focus();
+});
+ipcMain.handle("tool:run", (_e, name, args) => runTool(name, args));
+ipcMain.handle("tool:grant", (_e, folder) => {
+  try {
+    return { ok: true, folder: grantFolder(folder) };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
 });
 ipcMain.handle("clipboard:read", () => clipboard.readText());
 ipcMain.handle("clipboard:write", (_e, text) => {

@@ -28,9 +28,13 @@
       <div id="thinking" class="hidden"><i></i><i></i><i></i></div>
       <div id="reply" class="hidden"></div>
       <div id="confirm" class="hidden">
-        <span id="confirm-text"></span>
-        <button id="allow">Allow</button>
-        <button id="deny">Deny</button>
+        <div id="confirm-title"></div>
+        <pre id="confirm-detail"></pre>
+        <div class="actions">
+          <button id="allow">Allow</button>
+          <button id="allow-session" class="hidden">Allow for this session</button>
+          <button id="deny">Deny</button>
+        </div>
       </div>
       <input id="input" placeholder="Ask Nemo..." autocomplete="off" />
     </div>
